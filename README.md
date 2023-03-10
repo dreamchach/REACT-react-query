@@ -1,70 +1,267 @@
-# Getting Started with Create React App
+# react-query
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## useQuery
 
-## Available Scripts
+```javascript
+const { isLoading, error, data } = useQuery(
+  "repoData",
+  () =>
+    fetch("/data").then(
+      (res) => {
+        console.log("res", res);
+        return res.json();
+      }
+      // {
+      //   params: {
+      //     id: id,
+      //   },
+      // }
+    ),
+  {
+    staleTime: 5000,
+    cacheTime: 5000,
+    //   enabled: !!id
+  }
+);
+```
 
-In the project directory, you can run:
+### 정의
 
-### `npm start`
+- react-query를 이용해 서버로 부터 데이터를 조회해올 때 사용합니다.
+  > 데이터 조회가 이닌 데이터 변경 작업 시에는 `useMutation`을 사용합니다.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### useQuery의 기본 형태
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```javascript
+// 1
+const res = useQuery(queryKey, queryFn);
 
-### `npm test`
+// 2
+const res = useQuery({
+  queryKey: queryKey,
+  queryFn: queryFn,
+});
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### queryKey
 
-### `npm run build`
+- useQuery마다 부여되는 고유 Key 값입니다.
+  -queryKey값으로 `['persons', 'add Id']`와 `['add Id', 'persons']`는 다릅니다.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### queryFn
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- query Function의 약자로 **promise 처리가 이루어지는 함수**를 뜻합니다.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### staleTime
 
-### `npm run eject`
+- 데이터가 `fresh` => `stale` 상태로 변경되는데 걸리는 시간
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## chcheTime
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- 데이터가 `inactive` 상태일 때 캐싱된 상태로 남아있는 시간
+- `chcheTime`이 지나면 가비지 콜렉터로 수집된다.
+- `cacheTime`이 지나기 전에 쿼리 인스턴스가 다시 mount되면 데이터를 fetch하는 동안 캐시 데이터를 보여준다.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```javascript
+// 1
+const res = useQuery(queryKey, queryFn, {
+  staleTime: 0(기본값),
+  chcheTime: 300000(기본값), // 5분
+});
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+// 2
+const res = useQuery({
+  queryKey: queryKey,
+  queryFn: queryFn,
+  staleTime: 0,
+  chcheTime: 300000,
+});
+```
 
-## Learn More
+### refetch on window focus
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- 단순 페이지 전환으로 refetch여부를 결정
+- `refetchOnWindowFocus`가 `false`일 때, `staleTime`이 지나도 `focus`가 다시 되는 것만으로 `refetch` 발생 여부를 설정
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```javascript
+// 전역적 설정
+// index.js
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-### Code Splitting
+// useQuery마다 설정
+// 1
+const res = useQuery(queryKey, queryFn, {
+  refetchOnWindowFocus: false,
+});
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+// 2
+const res = useQuery({
+  queryKey: queryKey,
+  queryFn: queryFn,
+  refetchOnWindowFocus: false,
+});
+```
 
-### Analyzing the Bundle Size
+### enabled
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- 조건의 여부에 따라 서버에 데이터를 요청하도록 하는 기능
 
-### Making a Progressive Web App
+```javascript
+// 비교군 코드(동일한 결과)
+if (id) {
+  const res = axios.get("/data", {
+    params: {
+      id: id,
+    },
+  });
+}
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+// 1
+const res = useQuery(
+  queryKey,
+  () =>
+    axios.get("/data", {
+      params: {
+        id: id,
+      },
+    }),
+  {
+    enabled: !!id,
+  }
+);
 
-### Advanced Configuration
+// 2
+const res1 = useQuery({
+  queryKey: queryKey,
+  queryFn: () =>
+    axios.get("/data", {
+      params: {
+        id: id,
+      },
+    }),
+  enabled: !!id,
+});
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## useMutation
 
-### Deployment
+### 정의
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- `useMutation`은 react-query를 이용해 서버에 데이터 변경 작업을 요청할 때 사용합니다.
+- 데이터 조회를 할 때는 `useQuery`를 사용합니다.
 
-### `npm run build` fails to minify
+### useMutation 기본 구조
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```javascript
+// 1
+const res = useMutation(mutationFn);
+
+// 2
+const res = useMutation({
+  mutationFn: mutationFn,
+});
+```
+
+### mutationFn
+
+- `mutationFn`은 `mutation Funtion`의 약자로 *promise 처리가 이루어지는 함수*입니다.
+
+```javascript
+// 1
+const preOnClick = useMutation((value) => {
+  return axios.post("/data", value);
+});
+
+// 2
+const preOnClick = useMutation({
+  mutationFn: (value) => {
+    return axios.post("/data", value);
+  },
+});
+```
+
+### mutate
+
+- `mutate`는 **`useMutation`을 이용해 작성한 내용들이 실행될 수 있도록 도와주는 trigger 역할**을 합니다.
+- `useMutation`을 정의해둔 뒤, 이벤트가 발생되었을 때 `mutate`를 사용해주면 됩니다.
+
+```javascript
+  const preOnClick = useMutation((value) => {
+      return axios.post("/data", value);
+    });
+
+  const onClick = () => {
+    preOnClick.mutate(value);
+  };
+
+...
+<input type="text" value={value}/>
+<button type="button" onClick={onClick}>
+    데이터 추가
+</button>
+```
+
+### onSuccess, onError, onSettled
+
+```javascript
+const res = useMutation(mutationFn, {
+  // 요청이 성공한 경우
+  onSuccess: () => {
+    console.log("onSuccess");
+  },
+  // 요청에 에러가 발생된 경우
+  onError: (error) => {
+    console.log("onError");
+  },
+  // 요청이 성공하든, 에러가 발생되든 실행하고 싶은 경우
+  onSettled: () => {
+    console.log("onSettled");
+  },
+});
+```
+
+- `mutate`에서도 사용가능합니다.
+
+```javascript
+const onClick = () => {
+  preOnClick.mutate(value, {
+    onSuccess: () => {
+      console.log("onSuccess");
+    },
+    onError: (error) => {
+      console.log("onError");
+    },
+    onSettled: () => {
+      console.log("onSettled");
+    },
+  });
+};
+```
+
+### invalidateQueries
+
+- `invalidateQueries`는 `useQuery`에서 사용되는 `queryKey`의 유효성을 제거해서 **서버로부터 다시 데이터를 조회해오기 위해서입니다.**
+
+```javascript
+// 1. 등록된 queryClient를 가져오기
+const queryClient = new QueryClient();
+
+const res = useMutation(mutationFn, {
+  onSuccess: () => {
+    console.log("onSuccess");
+    queryClient.invalidateQueries("queryKey");
+  },
+  onError: (error) => {
+    console.log("onError");
+  },
+  onSettled: () => {
+    console.log("onSettled");
+  },
+});
+```
